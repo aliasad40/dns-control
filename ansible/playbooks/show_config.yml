@@ -1,0 +1,61 @@
+# READ-ONLY: shows Unbound version, config check result and every *.conf under /etc/unbound
+# (comments and blank lines hidden, line numbers kept). Changes nothing on the server.
+# In Semaphore: pick the server's inventory ("dns-lhr-NN · IP") when you press Run.
+- name: Config dekho (read-only)
+  hosts: all
+  gather_facts: false
+  become: "{{ ansible_user | default('root') != 'root' }}"
+  tasks:
+    - name: Unbound version
+      ansible.builtin.shell: unbound -V 2>&1 | head -1
+      register: ver
+      changed_when: false
+      failed_when: false
+
+    - name: Config syntax check (unbound-checkconf)
+      ansible.builtin.command: unbound-checkconf
+      register: chk
+      changed_when: false
+      failed_when: false
+
+    - name: Service state
+      ansible.builtin.command: systemctl is-active unbound
+      register: svc
+      changed_when: false
+      failed_when: false
+
+    - name: Find config files
+      ansible.builtin.find:
+        paths: /etc/unbound
+        patterns: "*.conf"
+        recurse: true
+      register: cfg
+
+    - name: Read config files
+      ansible.builtin.slurp:
+        src: "{{ item.path }}"
+      loop: "{{ cfg.files | sort(attribute='path') }}"
+      loop_control:
+        label: "{{ item.path }}"
+      register: files
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg:
+          - "Unbound:      {{ ver.stdout | default('not found') }}"
+          - "Service:      {{ svc.stdout | default('unknown') }}"
+          - "Config check: {{ 'OK' if chk.rc == 0 else 'ERROR: ' ~ (chk.stdout ~ ' ' ~ chk.stderr) | trim }}"
+          - "Files:        {{ cfg.files | map(attribute='path') | sort | join(', ') }}"
+
+    - name: File contents (comments and blank lines hidden)
+      ansible.builtin.debug:
+        msg: >-
+          {{ ['===== ' ~ item.source ~ ' ====='] +
+             ((item.content | b64decode).splitlines()
+               | zip(range(1, 100000))
+               | map('reverse') | map('join', ': ')
+               | reject('match', '^\d+: \s*(#.*)?$')
+               | list) }}
+      loop: "{{ files.results }}"
+      loop_control:
+        label: "{{ item.source }}"

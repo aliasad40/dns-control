@@ -55,6 +55,9 @@ services:
       - config:/etc/semaphore
       - data:/var/lib/semaphore
       - tmp:/tmp/semaphore
+      # Playbooks are read straight from the repo checkout on the VM (no GitHub deploy key needed).
+      # Read-only; secrets (.env, inventory/hosts.yml) are chmod 600 and unreadable to the container user.
+      - ..:/repo:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/ping | grep -q pong"]
       interval: 15s
