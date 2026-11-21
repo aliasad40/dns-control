@@ -1,0 +1,56 @@
+# One-time per server: create the automation user `dnsadmin` with key-only login.
+# Run with YOUR existing admin account (password prompts), e.g. on one server first:
+#   ansible-playbook playbooks/bootstrap_dnsadmin.yml -u <your-user> -k -K --limit dns-lhr-01
+# Does NOT touch sshd_config or the firewall (no lockout risk in this step).
+- name: Bootstrap dnsadmin automation user
+  hosts: all
+  become: true
+  vars:
+    pubkey_file: ~/.ssh/dnsadmin_ed25519.pub
+  tasks:
+    - name: Create dnsadmin (no password login)
+      ansible.builtin.user:
+        name: dnsadmin
+        shell: /bin/bash
+        password: "!"
+        update_password: always
+
+    - name: Create .ssh directory
+      ansible.builtin.file:
+        path: /home/dnsadmin/.ssh
+        state: directory
+        owner: dnsadmin
+        group: dnsadmin
+        mode: "0700"
+
+    - name: Install ONLY the mgmt VM key (replaces any other keys)
+      ansible.builtin.copy:
+        content: "{{ lookup('ansible.builtin.file', pubkey_file) }}\n"
+        dest: /home/dnsadmin/.ssh/authorized_keys
+        owner: dnsadmin
+        group: dnsadmin
+        mode: "0600"
+
+    # Ansible needs full sudo to run its modules; risk is contained by key-only login
+    # and (M5) SSH allowed only from the mgmt VM IP.
+    - name: Allow passwordless sudo for dnsadmin
+      ansible.builtin.copy:
+        content: "dnsadmin ALL=(ALL) NOPASSWD: ALL\n"
+        dest: /etc/sudoers.d/dnsadmin
+        owner: root
+        group: root
+        mode: "0440"
+        validate: /usr/sbin/visudo -cf %s
+
+- name: Verify dnsadmin can log in and sudo with the key
+  hosts: all
+  gather_facts: false
+  # Play keyword beats -u. dnsadmin's password is locked, so this can only pass via the key.
+  remote_user: dnsadmin
+  tasks:
+    - name: Key login + sudo works
+      ansible.builtin.command: id -un
+      become: true
+      changed_when: false
+      register: who
+      failed_when: who.stdout != "root"

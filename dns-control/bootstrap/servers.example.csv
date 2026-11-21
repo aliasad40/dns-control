@@ -1,0 +1,4 @@
+name,site,mgmt_ip,platform
+dns-lhr-01,Lahore,10.10.0.11/24,unbound
+dns-lhr-02,Lahore,10.10.0.12/24,unbound
+dns-fsd-01,Faisalabad,10.20.0.11/24,unbound

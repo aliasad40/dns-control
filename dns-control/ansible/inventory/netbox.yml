@@ -1,0 +1,11 @@
+# Dynamic inventory: NetBox is the source of truth. Reads NETBOX_API and NETBOX_TOKEN from env.
+# Groups produced: sites_<slug> (e.g. sites_lahore), platforms_unbound, platforms_bind9.
+plugin: netbox.netbox.nb_inventory
+validate_certs: false  # shortcut: NetBox is plain HTTP on mgmt VLAN until M2 adds TLS; set true then
+config_context: true
+group_by:
+  - sites
+  - platforms
+query_filters:
+  - role: dns-resolver
+  - status: active
