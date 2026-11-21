@@ -1,0 +1,37 @@
+# READ-ONLY, no credentials needed: runs on the mgmt VM / Semaphore container only.
+# Checks that each server's SSH port answers and that its host key matches known_hosts.
+- name: Check SSH reachability and pinned host keys
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: SSH port answers
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 22
+        timeout: 5
+      delegate_to: localhost
+      register: port
+      failed_when: false
+
+    - name: Live host key matches known_hosts
+      ansible.builtin.shell: |
+        set -o pipefail
+        ssh-keyscan -T 5 -t ed25519 {{ ansible_host }} 2>/dev/null | grep -v '^#' | awk '{print $3}' > /tmp/live_{{ inventory_hostname }}
+        test -s /tmp/live_{{ inventory_hostname }} || { echo nokey; exit 0; }
+        if grep -qF "$(cat /tmp/live_{{ inventory_hostname }})" {{ playbook_dir }}/../known_hosts; then echo match; else echo MISMATCH; fi
+        rm -f /tmp/live_{{ inventory_hostname }}
+      args:
+        executable: /bin/bash
+      delegate_to: localhost
+      register: hk
+      changed_when: false
+      when: port.msg is not defined   # wait_for sets msg only on timeout
+
+    - name: Result
+      ansible.builtin.debug:
+        msg: "ssh={{ 'open' if port.msg is not defined else 'CLOSED' }} hostkey={{ hk.stdout | default('n/a') }}"
+
+    - name: Fail on host key mismatch (possible MITM or reinstalled server)
+      ansible.builtin.assert:
+        that: hk.stdout | default('') != 'MISMATCH'
+        fail_msg: "Host key for {{ ansible_host }} differs from known_hosts. Verify on the console before updating."

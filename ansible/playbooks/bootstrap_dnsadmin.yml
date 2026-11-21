@@ -6,7 +6,8 @@
   hosts: all
   become: true
   vars:
-    pubkey_file: ~/.ssh/dnsadmin_ed25519.pub
+    # Public key is committed in ansible/files/ (the private key lives only in Semaphore Key Store + mgmt VM).
+    pubkey_file: "{{ playbook_dir }}/../files/dnsadmin_ed25519.pub"
   tasks:
     - name: Create dnsadmin (no password login)
       ansible.builtin.user:

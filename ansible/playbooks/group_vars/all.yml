@@ -1,0 +1,5 @@
+# Pin DNS server host keys to the committed known_hosts file (works for CLI and Semaphore runs).
+# A changed host key makes the run fail instead of sending credentials to an impostor.
+ansible_ssh_common_args: >-
+  -o UserKnownHostsFile={{ playbook_dir }}/../known_hosts
+  -o StrictHostKeyChecking=yes
