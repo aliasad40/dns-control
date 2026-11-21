@@ -5,7 +5,7 @@ Idempotent: safe to run again after editing the CSV (creates missing objects,
 updates changed fields, never deletes anything).
 
 Usage:
-    export NETBOX_URL=http://<mgmt-ip>:8000  NETBOX_TOKEN=<api token>
+    export NETBOX_URL=http://127.0.0.1:8000  NETBOX_TOKEN=<api token>
     python3 netbox_bootstrap.py servers.csv            # dry run, validates CSV only
     python3 netbox_bootstrap.py servers.csv --apply    # writes to NetBox
 

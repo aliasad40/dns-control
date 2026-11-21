@@ -1,7 +1,6 @@
-# Copy into the netbox-docker checkout (see README.md, step 1).
-# Publish NetBox ONLY on the mgmt VM's management IP, never 0.0.0.0.
-# shortcut: plain HTTP on the mgmt VLAN; TLS reverse proxy comes with the portal in M2.
+# dns-control: NetBox listens ONLY on loopback. Docker-published ports bypass ufw,
+# so external access goes through host nginx (443, ufw-restricted) -> 127.0.0.1:8000.
 services:
   netbox:
     ports:
-      - "${MGMT_IP:?set MGMT_IP to the mgmt VM IP}:8000:8080"
+      - "127.0.0.1:8000:8080"
