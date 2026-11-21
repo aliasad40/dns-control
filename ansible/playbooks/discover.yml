@@ -1,0 +1,79 @@
+# READ-ONLY discovery: changes nothing on the DNS servers.
+# Collects versions + capabilities, copies *.conf from /etc/unbound (keys/certs are skipped),
+# and writes discovery/report.md grouping servers with identical configs.
+#   ansible-playbook playbooks/discover.yml
+- name: Discover DNS servers
+  hosts: all
+  become: true            # unbound-control and some conf files need root to read
+  gather_subset: [min]
+  tasks:
+    - name: Unbound version and build options
+      ansible.builtin.command: unbound -V
+      register: uv
+      changed_when: false
+
+    - name: Config syntax check
+      ansible.builtin.command: unbound-checkconf
+      register: chk
+      changed_when: false
+      failed_when: false
+
+    - name: Service state
+      ansible.builtin.command: systemctl is-active unbound
+      register: svc
+      changed_when: false
+      failed_when: false
+
+    - name: Remote control (unbound-control) reachable
+      ansible.builtin.command: unbound-control status
+      register: rc
+      changed_when: false
+      failed_when: false
+
+    - name: unbound-control command list (looking for reload_keep_cache)
+      ansible.builtin.command: unbound-control -h
+      register: rchelp
+      changed_when: false
+      failed_when: false
+
+    - name: Find config files
+      ansible.builtin.find:
+        paths: /etc/unbound
+        patterns: "*.conf"
+        recurse: true
+        get_checksum: true
+      register: cfg
+
+    - name: Copy config files to the mgmt VM (discovery/<host>/etc/unbound/...)
+      ansible.builtin.fetch:
+        src: "{{ item.path }}"
+        dest: "{{ playbook_dir }}/../discovery/"
+      loop: "{{ cfg.files | sort(attribute='path') }}"
+      loop_control:
+        label: "{{ item.path }}"
+
+    - name: Summarise
+      ansible.builtin.set_fact:
+        disc:
+          os: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+          unbound: "{{ uv.stdout_lines[0] | regex_replace('^Version\\s+', '') }}"
+          dnstap: "{{ 'enable-dnstap' in uv.stdout }}"
+          reload_keep_cache: "{{ 'reload_keep_cache' in (rchelp.stdout ~ rchelp.stderr) }}"
+          checkconf_ok: "{{ chk.rc == 0 }}"
+          checkconf_msg: "{{ (chk.stdout ~ ' ' ~ chk.stderr) | trim | truncate(120) }}"
+          service: "{{ svc.stdout | default('unknown') }}"
+          remote_control: "{{ rc.rc == 0 }}"
+          site: "{{ sites[0] | default('?') }}"
+          files: "{{ cfg.files | length }}"
+          # Same signature = byte-identical set of .conf files.
+          cfg_sig: "{{ ((cfg.files | sort(attribute='path') | map(attribute='path') | zip(cfg.files | sort(attribute='path') | map(attribute='checksum')) | map('join', '=') | join(';')) | hash('sha1'))[:8] }}"
+
+- name: Write discovery report
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Render discovery/report.md
+      ansible.builtin.template:
+        src: templates/discovery_report.md.j2
+        dest: "{{ playbook_dir }}/../discovery/report.md"
+        mode: "0644"
