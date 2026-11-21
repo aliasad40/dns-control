@@ -1,0 +1,18 @@
+# Real inventory (IPs/hostnames of production DNS servers) - only servers.example.csv is committed
+servers.csv
+bootstrap/servers.csv
+
+# Discovery output: copies of live Unbound configs (ACLs, internal zones)
+discovery/
+ansible/discovery/
+
+# Secrets / tokens
+.env
+*.env
+!*.example.env
+
+# Python / Ansible noise
+__pycache__/
+*.pyc
+.venv/
+*.retry
