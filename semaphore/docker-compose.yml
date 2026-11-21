@@ -1,0 +1,70 @@
+# Semaphore UI + Postgres for dns-control.
+# Secrets live in .env (git-ignored, chmod 600). See .env.example.
+# Semaphore is published on 127.0.0.1 only: Docker-published ports bypass ufw,
+# so external access goes through host nginx on 443 (ufw-restricted to NOC IPs).
+name: semaphore
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: semaphore
+      POSTGRES_USER: semaphore
+      POSTGRES_PASSWORD: ${DB_PASS:?set DB_PASS in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U semaphore -d semaphore"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: &logging
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  semaphore:
+    image: semaphoreui/semaphore:v2.20.24
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      SEMAPHORE_DB_DIALECT: postgres
+      SEMAPHORE_DB_HOST: postgres
+      SEMAPHORE_DB_PORT: "5432"
+      SEMAPHORE_DB: semaphore
+      SEMAPHORE_DB_USER: semaphore
+      SEMAPHORE_DB_PASS: ${DB_PASS}
+      SEMAPHORE_ADMIN: admin
+      SEMAPHORE_ADMIN_NAME: Admin
+      SEMAPHORE_ADMIN_EMAIL: admin@localhost
+      # Used only on first start (creates the admin); remove from .env afterwards.
+      SEMAPHORE_ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # Encrypts the Key Store. Losing it = stored passwords/keys are unreadable. Back it up.
+      SEMAPHORE_ACCESS_KEY_ENCRYPTION: ${ACCESS_KEY_ENCRYPTION:?set ACCESS_KEY_ENCRYPTION in .env}
+      SEMAPHORE_COOKIE_HASH: ${COOKIE_HASH:?set COOKIE_HASH in .env}
+      SEMAPHORE_COOKIE_ENCRYPTION: ${COOKIE_ENCRYPTION:?set COOKIE_ENCRYPTION in .env}
+      SEMAPHORE_WEB_ROOT: ${WEB_ROOT:?set WEB_ROOT in .env}
+      SEMAPHORE_TOTP_ENABLED: "true"
+      SEMAPHORE_MAX_PARALLEL_TASKS: "2"
+      TZ: Asia/Karachi
+    volumes:
+      - config:/etc/semaphore
+      - data:/var/lib/semaphore
+      - tmp:/tmp/semaphore
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/ping | grep -q pong"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging: *logging
+
+volumes:
+  pgdata:
+  config:
+  data:
+  tmp:
