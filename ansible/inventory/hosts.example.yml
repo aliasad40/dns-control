@@ -1,0 +1,12 @@
+# Copy to hosts.yml (git-ignored) for CLI runs. In Semaphore, paste the same YAML
+# into Inventory -> "Lahore" (type: Static YAML). One group per site; `site` is used in reports.
+all:
+  children:
+    lahore:
+      vars:
+        site: lahore
+      hosts:
+        dns-lhr-01:
+          ansible_host: 192.0.2.8
+        dns-lhr-02:
+          ansible_host: 192.0.2.9

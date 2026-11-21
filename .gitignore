@@ -1,10 +1,10 @@
-# Real inventory (IPs/hostnames of production DNS servers) - only servers.example.csv is committed
-servers.csv
-bootstrap/servers.csv
+# Real inventory (IPs of production DNS servers); only hosts.example.yml is committed
+ansible/inventory/hosts.yml
 
-# Discovery output: copies of live Unbound configs (ACLs, internal zones)
+# Discovery / backup output: copies of live Unbound configs (ACLs, internal zones)
 discovery/
 ansible/discovery/
+backups/
 
 # Secrets / tokens
 .env

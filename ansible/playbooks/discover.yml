@@ -63,7 +63,7 @@
           checkconf_msg: "{{ (chk.stdout ~ ' ' ~ chk.stderr) | trim | truncate(120) }}"
           service: "{{ svc.stdout | default('unknown') }}"
           remote_control: "{{ rc.rc == 0 }}"
-          site: "{{ sites[0] | default('?') }}"
+          site: "{{ site | default('?') }}"
           files: "{{ cfg.files | length }}"
           # Same signature = byte-identical set of .conf files.
           cfg_sig: "{{ ((cfg.files | sort(attribute='path') | map(attribute='path') | zip(cfg.files | sort(attribute='path') | map(attribute='checksum')) | map('join', '=') | join(';')) | hash('sha1'))[:8] }}"

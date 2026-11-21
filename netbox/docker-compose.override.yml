@@ -1,6 +1,0 @@
-# dns-control: NetBox listens ONLY on loopback. Docker-published ports bypass ufw,
-# so external access goes through host nginx (443, ufw-restricted) -> 127.0.0.1:8000.
-services:
-  netbox:
-    ports:
-      - "127.0.0.1:8000:8080"
